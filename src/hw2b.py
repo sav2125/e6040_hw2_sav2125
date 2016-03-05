@@ -76,7 +76,7 @@ def load_data():
     # Extract validation dataset from train dataset
     train_set_len = len(train_set[1])
     valid_set = (x[-(train_set_len//10):] for x in train_set)
-    test_set = (x[:-(train_set_len//10)] for x in train_set)
+    train_set = (x[:-(train_set_len//10)] for x in train_set)
 
     # train_set, valid_set, test_set format: tuple(input, target)
     # input is a numpy.ndarray of 2 dimensions (a matrix)
@@ -391,11 +391,118 @@ class MLP(object):
 
 # TODO: problem b, bullet 1
 class myMLP(object):
-    pass
+    """Multi-Layer Perceptron Class
+
+    A multilayer perceptron is a feedforward artificial neural network model
+    that has one layer or more of hidden units and nonlinear activations.
+    Intermediate layers usually have as activation function tanh or the
+    sigmoid function (defined here by a ``HiddenLayer`` class)  while the
+    top layer is a softmax layer (defined here by a ``LogisticRegression``
+    class).
+    """
+
+    def __init__(self, rng, input, n_in, n_hidden, n_out, n_hidden_layer):
+        """Initialize the parameters for the multilayer perceptron
+
+        :type rng: numpy.random.RandomState
+        :param rng: a random number generator used to initialize weights
+
+        :type input: theano.tensor.TensorType
+        :param input: symbolic variable that describes the input of the
+        architecture (one minibatch)
+
+        :type n_in: int
+        :param n_in: number of input units, the dimension of the space in
+        which the datapoints lie
+
+        :type n_hidden: int
+        :param n_hidden: number of hidden units
+
+        :type n_out: int
+        :param n_out: number of output units, the dimension of the space in
+        which the labels lie
+
+        """
+
+        # Since we are dealing with a one hidden layer MLP, this will translate
+        # into a HiddenLayer with a tanh activation function connected to the
+        # LogisticRegression layer; the activation function can be replaced by
+        # sigmoid or any other nonlinear function
+        
+        self.hidden_layers = []
+        for index in range(n_hidden_layer):
+            #print ('new layer')
+            if index == 0:
+                self.hidden_layers.append(HiddenLayer(
+                    rng=rng,
+                    input=input,
+                    n_in=n_in,
+                    n_out=n_hidden,
+                    #activation=T.nnet.softmax
+                    activation=T.tanh
+                    ))
+            else:
+            #    print ('in else')
+            #    print index
+                self.hidden_layers.append(HiddenLayer(
+                        rng=rng,
+                        input=self.hidden_layers[index-1].output,
+                        n_in=n_hidden,
+                        n_out=n_hidden,
+                        #activation=T.nnet.softmax
+                        activation=T.tanh
+                    ))
+
+        # The logistic regression layer gets as input the hidden units
+        # of the hidden layer
+        self.logRegressionLayer = LogisticRegression(
+            input=self.hidden_layers[n_hidden_layer-1].output,
+            n_in=n_hidden,
+            n_out=n_out
+        )
+        # L1 norm ; one regularization option is to enforce L1 norm to
+        # be small
+        l1_norm = 0;
+        l2_norm = 0;
+        for index in range(n_hidden_layer):
+            l1_norm = l1_norm + abs(self.hidden_layers[index].W).sum()
+            l2_norm = l2_norm + (self.hidden_layers[index].W ** 2).sum()
+        self.L1 = (
+            #abs(self.hiddenLayer.W).sum()
+            l1_norm
+            + abs(self.logRegressionLayer.W).sum()
+        )
+
+        # square of L2 norm ; one regularization option is to enforce
+        # square of L2 norm to be small
+        self.L2_sqr = (
+            #(self.hiddenLayer.W ** 2).sum()
+            l2_norm
+            + (self.logRegressionLayer.W ** 2).sum()
+        )
+
+        # negative log likelihood of the MLP is given by the negative
+        # log likelihood of the output of the model, computed in the
+        # logistic regression layer
+        self.negative_log_likelihood = (
+            self.logRegressionLayer.negative_log_likelihood
+        )
+        # same holds for the function computing the number of errors
+        self.errors = self.logRegressionLayer.errors
+
+        # the parameters of the model are the parameters of the two layer it is
+        # made out of
+        parameters = []
+        for index in range(n_hidden_layer):
+            parameters = parameters + self.hidden_layers[index].params
+        self.params = parameters + self.logRegressionLayer.params
+
+        # keep track of model input
+        self.input = input
 
 # TODO: you might need to modify the interface
-def test_mlp(learning_rate=0.01, L1_reg=0.00, L2_reg=0.0001, n_epochs=1000,
-             batch_size=20, n_hidden=500, verbose=False):
+def test_mlp(learning_rate=0.01, L1_reg=0.00, L2_reg=0.0001, n_epochs=100,
+             batch_size=50, n_hidden=500, layer=2, verbose=True):
     """
     Demonstrate stochastic gradient descent optimization for a multilayer
     perceptron
@@ -446,12 +553,13 @@ def test_mlp(learning_rate=0.01, L1_reg=0.00, L2_reg=0.0001, n_epochs=1000,
     rng = numpy.random.RandomState(1234)
 
     # construct the MLP class
-    classifier = MLP(
+    classifier = myMLP(
         rng=rng,
         input=x,
         n_in=32*32*3,
         n_hidden=n_hidden,
         n_out=10,
+        n_hidden_layer=layer,
     )
 
     # TODO: use your MLP
