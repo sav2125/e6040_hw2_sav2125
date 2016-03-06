@@ -401,7 +401,7 @@ class myMLP(object):
     class).
     """
 
-    def __init__(self, rng, input, n_in, n_hidden, n_out, n_hidden_layer):
+    def __init__(self, rng, input, n_in, n_hidden, n_out, n_hidden_layer, act_function):
         """Initialize the parameters for the multilayer perceptron
 
         :type rng: numpy.random.RandomState
@@ -433,26 +433,39 @@ class myMLP(object):
         for index in range(n_hidden_layer):
             #print ('new layer')
             if index == 0:
-                self.hidden_layers.append(HiddenLayer(
+                if act_function == 1:
+                    self.hidden_layers.append(HiddenLayer(
                     rng=rng,
                     input=input,
                     n_in=n_in,
                     n_out=n_hidden,
-                    #activation=T.nnet.softmax
                     activation=T.tanh
                     ))
+                else :
+                    self.hidden_layers.append(HiddenLayer(
+                    rng=rng,
+                    input=input,
+                    n_in=n_in,
+                    n_out=n_hidden,
+                    activation=T.nnet.softmax
+                    ))
             else:
-            #    print ('in else')
-            #    print index
-                self.hidden_layers.append(HiddenLayer(
+                if act_function == 1:
+                    self.hidden_layers.append(HiddenLayer(
                         rng=rng,
                         input=self.hidden_layers[index-1].output,
                         n_in=n_hidden,
                         n_out=n_hidden,
-                        #activation=T.nnet.softmax
                         activation=T.tanh
                     ))
-
+                else :
+                    self.hidden_layers.append(HiddenLayer(
+                        rng=rng,
+                        input=self.hidden_layers[index-1].output,
+                        n_in=n_hidden,
+                        n_out=n_hidden,
+                        activation=T.nnet.softmax
+                            ))
         # The logistic regression layer gets as input the hidden units
         # of the hidden layer
         self.logRegressionLayer = LogisticRegression(
@@ -501,8 +514,8 @@ class myMLP(object):
         self.input = input
 
 # TODO: you might need to modify the interface
-def test_mlp(learning_rate=0.01, L1_reg=0.00, L2_reg=0.0001, n_epochs=100,
-             batch_size=50, n_hidden=500, layer=2, verbose=True):
+def test_mlp( layer, act_function,learning_rate=0.01, L1_reg=0.00, L2_reg=0.0001, n_epochs=150,
+             batch_size=75, n_hidden=500, verbose=True):
     """
     Demonstrate stochastic gradient descent optimization for a multilayer
     perceptron
@@ -560,6 +573,7 @@ def test_mlp(learning_rate=0.01, L1_reg=0.00, L2_reg=0.0001, n_epochs=100,
         n_hidden=n_hidden,
         n_out=10,
         n_hidden_layer=layer,
+        act_function = act_function,
     )
 
     # TODO: use your MLP
@@ -713,6 +727,7 @@ def test_mlp(learning_rate=0.01, L1_reg=0.00, L2_reg=0.0001, n_epochs=100,
     print(('The code for file ' +
            os.path.split(__file__)[1] +
            ' ran for %.2fm' % ((end_time - start_time) / 60.)), file=sys.stderr)
+    return test_score
 
 if __name__ == '__main__':
     test_mlp()
